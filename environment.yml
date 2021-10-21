@@ -1,0 +1,9 @@
+name: tutc_env
+channels:
+  - conda
+dependencies:
+   - ipykernel
+   - jupyter
+   - jupyterlab
+   - pandas
+   - conda-forge::yake
