@@ -75,7 +75,7 @@ class BrownClustering:
                 low = top[-1][1]
         return top
 
-    def train(self):
+    def train(self, print_date=False, print_bestmerge=False, print_clusters=True):
 
         words = self.ranks(self.vocabulary)
         tops = words[0:self.m]
@@ -86,21 +86,26 @@ class BrownClustering:
         itr = 0
         for w in words[self.m:]:
             itr += 1
-            print(str(itr) + "\t" + str(datetime.datetime.now()))
+            if print_date:
+                print(str(itr) + "\t" + str(datetime.datetime.now()))
             self.helper.append_cluster([w[0]])
             _benefit = self.helper.compute_benefit()
             best_merge = self.merge_arg_max(_benefit, self.helper)
-            print(best_merge)
+            if print_bestmerge:
+                print(best_merge)
 
-        print(self.helper.get_clusters())
+        if print_clusters:
+            print(self.helper.get_clusters())
 
         xxx = self.helper.get_clusters()
 
         for _ in range(len(self.helper.get_clusters()) - 1):
             itr += 1
-            print(str(itr) + "\t" + str(datetime.datetime.now()))
+            if print_date:
+                print(str(itr) + "\t" + str(datetime.datetime.now()))
             _benefit = self.helper.compute_benefit()
             best_merge = self.merge_arg_max(_benefit, self.helper)
-            print(best_merge)
+            if print_bestmerge:
+                print(best_merge)
 
         return xxx

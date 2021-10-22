@@ -21,13 +21,17 @@ class BClustering(BaseEstimator, TransformerMixin):
         self.start_symbol = start_symbol
         self.end_symbol = end_symbol
 
-    def fit(self, X, y=None):
+    def fit(self, X, y=None, print_date=False, print_bestmerge=False,
+            print_clusters=True):
+
         print("[I] Brown Clustering report:")
         self.corpus = Corpus(X, alpha=self.alpha,
                              start_symbol=self.start_symbol,
                              end_symbol=self.end_symbol)
         clustering = BrownClustering(self.corpus, self.m)
-        clustering.train()
+        clustering.train(print_date=print_date,
+                         print_bestmerge=print_bestmerge,
+                         print_clusters=print_clusters)
         return clustering
 
     def transform(self, X):
