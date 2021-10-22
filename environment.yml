@@ -7,3 +7,6 @@ dependencies:
    - jupyterlab
    - pandas
    - conda-forge::yake
+   - nltk
+   - scikit-learn
+   - tqdm
