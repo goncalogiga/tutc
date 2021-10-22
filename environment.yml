@@ -1,14 +1,35 @@
 name: tutc_env
 channels:
+#  - defaults
   - conda
+#  - hcc
 dependencies:
-   - ipykernel
-   - jupyter
-   - jupyterlab
-   - pandas
-   - conda-forge::yake
-   - nltk
-   - scikit-learn
-   - tqdm
-   - tensorflow
-   - torch
+  - python=3.8
+  - transformers
+  - jupyter
+  - tensorflow
+  - conda-forge::yake
+  - conda-forge::gdown
+  - conda-forge::pyldavis
+  - conda-forge::wordcloud
+  - conda-forge::langdetect
+  - jupyterlab
+  - prompt_toolkit
+  - ipython = 7.10.0
+  #- stanfordnlp::stanza
+  - tornado
+  - numpy
+  - spacy
+  - nltk
+  - pandas
+  - matplotlib
+  - gensim
+  - pytz
+  - pillow
+  - seaborn
+  - scikit-learn
+  - readchar
+  - tqdm
+  - pytorch
+  - conda-forge::transformers
+  - conda-forge::sentencepiece
