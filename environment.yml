@@ -10,3 +10,5 @@ dependencies:
    - nltk
    - scikit-learn
    - tqdm
+   - tensorflow
+   - torch
