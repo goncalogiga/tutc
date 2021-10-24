@@ -1,3 +1,4 @@
+import torch
 from LOTClassModel import LOTClassModel
 from multiprocessing import cpu_count
 from transformers import BertTokenizer
@@ -77,24 +78,33 @@ class LOTClass():
             print(f"[I] all_label_names_ids: {self.all_label_name_ids}")
             print(f"[I] all_label_names: {self.all_label_names}")
 
-    def encode_data(self, X):
+    def encode_data(self, X, quiet=False):
         encoded_dict = self.tokenizer.batch_encode_plus(X, add_special_tokens=True,
                                                         max_length=MODEL_MAX_LEN,
                                                         padding='max_length',
                                                         return_attention_mask=True,
                                                         truncation=True,
                                                         return_tensors='pt')
-        if not self.quiet:
+        if not self.quiet and not quiet:
             print("[I] Example of encoded data:")
             print("[I] Textual input:")
             print(">>>", X[0])
             print("[I] Encoded result (dict - truncated 512 elements tensor to 10):")
             print(">>>", {key: encoded_dict[key][0][:10] for key in encoded_dict})
 
-        # results = encoded_dict['input_ids'], encoded_dict['attention_mask']
-        # input_ids = torch.cat([result[0] for result in results])
-        # attention_masks = torch.cat([result[1] for result in results])
+        return encoded_dict["input_ids"], encoded_dict["attention_mask"]
+
+    def encoded2tensors(self, X):
+        results = self.encode_data(X)
+        input_ids = torch.cat([result[0] for result in results])
+        attention_masks = torch.cat([result[1] for result in results])
+        data = {"input_ids": input_ids, "attention_masks": attention_masks}
+
+        if not self.quiet:
+            print(f"[I : encoded2tensors] data: {data}")
+
+        return data
 
 
 l= LOTClass([["Light"], ["Dark"]])
-l.encode_data(["ola que tal", "oi"])
+l.encoded2tensors(["ola que tal", "oi"])
