@@ -98,8 +98,12 @@ class Bert():
 
         chunks = [X[x:x+chunk_size] for x in range(0, len(X), chunk_size)]
 
-        results = Parallel(n_jobs=self.num_cpus)(
+        try:
+            results = Parallel(n_jobs=self.num_cpus)(
                 delayed(self.encode)(X=chunk) for chunk in chunks)
+        except:
+            print("Something went wrong with the parallelization...")
+            results = [self.encode(X)]
 
         # Convert the lists into tensors. For each result (each CPU
         # calculations), concatenate (with cat) the input ids together as well
