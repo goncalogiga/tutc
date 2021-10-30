@@ -3,21 +3,36 @@ from multiprocessing import cpu_count
 from transformers import BertTokenizer
 from joblib import Parallel, delayed
 from torch.utils.data import TensorDataset, random_split
+from torch.utils.data import DataLoader, RandomSampler, SequentialSampler
+from transformers import BertForSequenceClassification, AdamW, BertConfig
+from transformers import get_linear_schedule_with_warmup
 import torch
+from types import FunctionType
+from trainer import train_model
 
 
 class Bert():
-    def __init__(self, model='bert-base-uncased', max_length=64, quiet=False):
+    def __init__(self, labelizer=None, model='bert-base-uncased', max_length=64,
+                 quiet=False):
+
         self.quiet = quiet
         self.max_length = max_length
+        self.model_name = model
+
+        if labelizer is not None and not isinstance(labelizer, FunctionType):
+            raise TypeError("labelizer should be a callable function.")
+        self.labelizer = labelizer
 
         self.check_hardware()
-        # Load the BERT tokenizer.
 
+        # Load the BERT tokenizer.
         if not quiet:
-            print('Loading BERT tokenizer...')
+            print('Loading the BERT tokenizer...')
         self.tokenizer = BertTokenizer.from_pretrained(model,
                                                        do_lower_case=True)
+
+        # Let's not load the model right away to save some memory
+        self.model = None
 
     def check_hardware(self):
         """
@@ -44,7 +59,7 @@ class Bert():
 
     def encode(self, X):
         """
-        `encode_plus` will:
+        `batch_encode_plus` will:
         (1) Tokenize the sentence.
         (2) Prepend the `[CLS]` token to the start.
         (3) Append the `[SEP]` token to the end.
@@ -71,9 +86,18 @@ class Bert():
         return input_ids, attention_masks
 
     def tokenize(self, X, y, showcase=False):
+        """
+        Applies the BERT tokenizer to the data in order to retrieve the token
+        IDs associated to each input as well as the attention_masks. The actual
+        tokenization is done in the function `encode` but this function divides
+        the data in order for each CPU to tokenize batches of data and also
+        transforms the output of the tokenizer into tensors.
+        """
         # Run, in parallel, the encoding of the dataset X
         chunk_size = ceil(len(X) / self.num_cpus)
+
         chunks = [X[x:x+chunk_size] for x in range(0, len(X), chunk_size)]
+
         results = Parallel(n_jobs=self.num_cpus)(
                 delayed(self.encode)(X=chunk) for chunk in chunks)
 
@@ -91,16 +115,117 @@ class Bert():
 
         return input_ids, attention_masks, labels
 
-    def make_dataloader(self):
-        pass
+    def make_dataloader(self, input_ids, attention_masks, labels,
+                        batch_size=32):
+        """
+        Create an iterator for our dataset using the torch DataLoader class.
+        This helps save on memory during training because, unlike a for loop,
+        with an iterator the entire dataset does not need to be loaded into
+        memory
+        """
+        # Combine the training inputs into a TensorDataset.
+        dataset = TensorDataset(input_ids, attention_masks, labels)
+
+        # Create a 90-10 train-validation split.
+
+        # Calculate the number of samples to include in each set.
+        train_size = int(0.9 * len(dataset))
+        test_size = len(dataset) - train_size
+
+        # Divide the dataset by randomly selecting samples.
+        train_dataset, test_dataset = random_split(dataset,
+                                                   [train_size, test_size])
+
+        # Create the DataLoaders for our training and validation sets.
+        # We'll take training samples in random order.
+        train_dataloader = DataLoader(train_dataset,
+                                      sampler=RandomSampler(train_dataset),
+                                      batch_size=batch_size)
+
+        # For validation the order doesn't matter, so we'll just read them
+        # sequentially.
+        test_dataloader = DataLoader(test_dataset,
+                                     sampler=SequentialSampler(test_dataset),
+                                     batch_size=batch_size)
+
+        return train_dataloader, test_dataloader
+
+    def load_model(self, num_labels):
+        if not self.quiet:
+            print('Loading the BERT model...')
+
+        # Load BertForSequenceClassification, the pretrained BERT model with a
+        # single linear classification layer on top.
+        self.model = BertForSequenceClassification.from_pretrained(
+            self.model_name,
+            num_labels=num_labels,
+            output_attentions=False,
+            output_hidden_states=False)
+
+        if self.gpu:
+            self.model.cuda()
+
+    def get_optimizer(self):
+        """
+        Note: AdamW is a class from the huggingface library (as opposed to
+        pytorch) I believe the 'W' stands for 'Weight Decay fix"
+        """
+        return AdamW(self.model.parameters(), lr=2e-5, eps=1e-8)
+
+    def get_scheduler(self, optimizer, total_steps):
+        # Create the learning rate scheduler.
+        return get_linear_schedule_with_warmup(optimizer,
+                                               num_warmup_steps=0,
+                                               num_training_steps=total_steps)
+
+
+    def transform(self, X, y=None):
+        return
+
+    def fit(self, X, y=None, path_to_save_stats=None, path_to_save_model=None,
+            epochs=4, seed_val=42):
+
+        if self.labelizer is not None:
+            if y is not None:
+                raise Exception("Argument y of function transform is uncompatible\
+                                with the given labelizer")
+
+            X, y = self.labelizer(X)
+
+        assert len(X) == len(y), f"len(X) != len(y)\
+                                  [len(X) = {len(X)}, len(y) = {len(y)}]"
+
+        input_ids, attention_masks, labels = self.tokenize(X, y)
+
+        train_dl, test_dl = self.make_dataloader(input_ids,
+                                                 attention_masks,
+                                                 labels)
+
+        # Total number of training steps is [number of batches] x [number of
+        # epochs].  (Note that this is not the same as the number of training
+        # samples).
+        total_steps = len(train_dl) * epochs
+
+        self.load_model(len(y))
+        optimizer = self.get_optimizer()
+        scheduler = self.get_scheduler(optimizer, total_steps)
+
+        train_model(
+            self.model,
+            train_dl,
+            test_dl,
+            optimizer,
+            scheduler,
+            epochs,
+            self.device,
+            path_to_save_stats,
+            path_to_save_model,
+            seed_val
+        )
+
+
+
 
 
 # TESTING ====
 bert = Bert()
-
-X = ["Testing BERT one time", "Testing BERT two times", "k", "j", "a", "b", "a", "a"]
-y = [0, 1, 1, 1, 1, 1, 1, 1]
-
-assert len(X) == len(y)
-
-bert.tokenize(X, y, True)
