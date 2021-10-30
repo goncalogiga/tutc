@@ -184,7 +184,7 @@ class Bert():
 
 
     def transform(self, X, y=None):
-        return
+        return X
 
     def fit(self, X, y=None, path_to_save_stats=None, path_to_save_model=None,
             epochs=4, seed_val=42):
