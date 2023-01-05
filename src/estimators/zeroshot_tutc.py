@@ -1,13 +1,9 @@
 from sklearn.base import BaseEstimator, TransformerMixin
-import tensorflow as tf
-import torch as t
-# !pip install transformers - for collab
-import transformers
 from transformers import pipeline
 
 
 class ZeroShotClassifier(BaseEstimator, TransformerMixin):
-    def __init__(self, labels, *args, **kwargs):
+    def __init__(self, labels):
         self.classifier = pipeline("zero-shot-classification")
         self.labels = labels
 
